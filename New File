@@ -139,6 +139,13 @@ builder.Services.AddSignalR();
 
 //HTML
 
+<link href="~/Content/bootstrap.min.css" rel="stylesheet" />
+
+ <script type="text/javascript" src="Angular/refreshGrid.js"></script>
+
+<script type="text/javascript" src="lib/signalr.min.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/angularjs/1.7.5/angular.min.js"></script>
+
 <body id="myngapp" ng-app="gridapp" ng-controller="HomeController">
 <div style="background-color:#2A3132;width:100%;padding:1px;">
 <center><h2 style="color:white">ASP.NET MVC AngularJS GRID</h2></center>
