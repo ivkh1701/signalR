@@ -1,5 +1,8 @@
  //Service
  
+      private readonly IHubContext<SignalRServer> _hubContext;
+
+ 
  
  public async Task<DataTable> GetProductDataWithSqlDependency()
         {
