@@ -1,0 +1,166 @@
+ //Service
+ 
+ 
+ public async Task<DataTable> GetProductDataWithSqlDependency()
+        {
+            using (var connection = new SqlConnection(_connectionString))
+            using (var cmd = new SqlCommand("SELECT [Id],[Name],[Description] FROM dbo.Products;", connection))
+            {
+
+                var dt = new DataTable();
+
+                // Create dependency for this command and add event handler
+                var dependency = new SqlDependency(cmd);
+                dependency.OnChange += new OnChangeEventHandler(onDependencyChange);
+
+                // execute command to get data
+                connection.Open();
+                dt.Load(await cmd.ExecuteReaderAsync(CommandBehavior.CloseConnection));
+
+                return dt;
+
+            }
+        }
+        private async void onDependencyChange(object sender, SqlNotificationEventArgs e)
+        {
+            Console.WriteLine($"OnChange Event fired. SqlNotificationEventArgs: Info={e.Info}, Source={e.Source}, Type={e.Type}.");
+
+            if ((e.Info != SqlNotificationInfo.Invalid)
+                && (e.Type != SqlNotificationType.Subscribe))
+            {
+                //resubscribe
+                var dt = await GetProductDataWithSqlDependency();
+
+                await _hubContext.Clients.All.SendAsync("refreshProducts");
+
+                Console.WriteLine($"Data changed.  {dt.Rows.Count} rows returned.");
+            }
+            else
+            {
+                Console.WriteLine("SqlDependency not restarted");
+            }
+        }
+        private static List<T> ConvertDataTable<T>(DataTable dt)
+        {
+            List<T> data = new List<T>();
+            foreach (DataRow row in dt.Rows)
+            {
+                T item = GetItem<T>(row);
+                data.Add(item);
+            }
+            return data;
+        }
+        private static T GetItem<T>(DataRow dr)
+        {
+            Type temp = typeof(T);
+            T obj = Activator.CreateInstance<T>();
+
+            foreach (DataColumn column in dr.Table.Columns)
+            {
+                foreach (PropertyInfo pro in temp.GetProperties())
+                {
+                    if (pro.Name == column.ColumnName)
+                        pro.SetValue(obj, dr[column.ColumnName], null);
+                    else
+                        continue;
+                }
+            }
+            return obj;
+        }
+        
+        
+        
+        
+        //SignalR JS
+        
+        <script>
+    let connection = new signalR.HubConnectionBuilder()
+                                .withUrl('/signalrserver')
+                                .build();
+    //Start connection 
+    connection.start()
+     // Create a function that the hub can call to broadcast messages.
+    connection.on('refreshProducts', function () {
+       angular.element(document.getElementById('myngapp')).scope().filltable();
+    });
+
+</script>
+
+
+
+//Angualr JS
+var app = angular.module('gridapp', []);
+app.controller("HomeController", function ($scope, $http) {
+    //$scope.btntext = "Fill Table";
+    // in controller
+    $scope.filltable = function () {
+        //$scope.btntext = "Please wait....";
+
+        $http({
+            method: "GET",
+            url: '/Home/GetProducts',
+            data: $scope.Users
+        }).then(function (response) {
+            var k = JSON.parse(JSON.stringify(response.data));
+            $scope.que = k;
+            $scope.btntext = "Fill Table";
+        }, function (error) {
+            var k = JSON.parse(JSON.stringify(response.data));
+            alert(k.message);
+            $scope.btntext = "Fill Table";
+        });
+    }
+    $scope.filltable();
+
+})
+
+
+//.Net Core
+
+//Custom Code
+
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapHub<SignalRServer>("/signalrserver");
+});
+
+//End
+
+//Custom Code
+builder.Services.AddTransient<IProductService, ProductService>();
+builder.Services.AddControllersWithViews().AddRazorRuntimeCompilation();
+builder.Services.AddSignalR();
+
+//End
+
+
+//HTML
+
+<body id="myngapp" ng-app="gridapp" ng-controller="HomeController">
+<div style="background-color:#2A3132;width:100%;padding:1px;">
+<center><h2 style="color:white">ASP.NET MVC AngularJS GRID</h2></center>
+</div>
+<div class="parent">
+<br /><br />
+
+<br /><br />
+<table class="table-condensed table-bordered">
+<thead>
+<tr>
+<th>Id</th>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr ng-repeat="item in que">
+<td>{{item.id}}</td>
+<td>{{item.name}}</td>
+<td>{{item.description}}</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+</body>
